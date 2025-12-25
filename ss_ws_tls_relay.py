@@ -121,25 +121,17 @@ def parse_shadowsocks_request(data: bytes) -> Tuple[Optional[str], Optional[int]
     except Exception:
         return None, None, 0
 
-async def forward_data(src, dst, direction: str, connection_id: str):
-    """双向数据转发"""
+async def forward_data(src, dst, connection_id: str):
+    """双向数据转发（WebSocket到WebSocket）"""
     bytes_transferred = 0
     try:
         while not shutdown_event.is_set():
             try:
-                if direction == "ws_to_socket":
-                    data = await asyncio.wait_for(src.recv(), timeout=1.0)
-                    if not data:
-                        break
-                    dst.sendall(data)
-                    bytes_transferred += len(data)
-                else:  # socket_to_ws
-                    loop = asyncio.get_event_loop()
-                    data = await asyncio.wait_for(loop.sock_recv(src, 4096), timeout=1.0)
-                    if not data:
-                        break
-                    await dst.send(data)
-                    bytes_transferred += len(data)
+                data = await asyncio.wait_for(src.recv(), timeout=1.0)
+                if not data:
+                    break
+                await dst.send(data)
+                bytes_transferred += len(data)
             except asyncio.TimeoutError:
                 continue
             except Exception:
@@ -239,10 +231,10 @@ async def handle_local_client(local_ws, path):
             "target": f"{target_addr}:{target_port}"
         }
         
-        # 双向数据转发
+        # 双向数据转发（WebSocket到WebSocket）
         await asyncio.gather(
-            forward_data(local_ws, remote_ws, "ws_to_socket", connection_id),
-            forward_data(remote_ws, local_ws, "socket_to_ws", connection_id),
+            forward_data(local_ws, remote_ws, connection_id),
+            forward_data(remote_ws, local_ws, connection_id),
             return_exceptions=True
         )
         
