@@ -6,10 +6,7 @@ import socket
 import os
 import subprocess
 import idna
-import threading
-import time
 from typing import Tuple, Optional
-from datetime import datetime
 
 # 需要修改的关键配置
 shadowsocks_password = "password"   # 密码
@@ -26,134 +23,24 @@ connection_count = 0
 total_bytes_transferred = 0
 active_connections = set()
 
-# 证书续期相关
-cert_renewal_thread = None
-renewal_check_interval = 86400  # 24小时检查一次（秒）
-renewal_threshold_days = 30  # 证书到期前30天开始续期
-
-def check_certificate_expiry(cert_file: str) -> Tuple[bool, int]:
-    """检查证书到期时间，返回(是否即将到期，剩余天数)"""
+def copy_certificate_files(domain: str):
+    """从acme.sh目录复制证书文件到当前目录"""
     try:
-        # 使用openssl检查证书到期时间
-        result = subprocess.run([
-            "openssl", "x509", "-enddate", "-noout", "-in", cert_file
-        ], capture_output=True, text=True, check=True)
+        # acme.sh默认证书路径
+        home_dir = os.path.expanduser("~")
+        acme_dir = f"{home_dir}/.acme.sh/{domain}"
         
-        # 解析到期时间
-        expiry_line = result.stdout.strip()
-        if "notAfter=" in expiry_line:
-            expiry_str = expiry_line.split("=")[1].strip()
-            expiry_date = datetime.strptime(expiry_str, "%b %d %H:%M:%S %Y %Z")
-            days_remaining = (expiry_date - datetime.now()).days
-            is_near_expiry = days_remaining <= renewal_threshold_days
-            return is_near_expiry, days_remaining
-    except Exception as e:
-        print(f"[证书检查] 无法检查证书到期时间: {str(e)}")
-    
-    return True, 0  # 无法检查时默认需要续期
-
-def renew_certificate(domain: str) -> bool:
-    """续期Let's Encrypt证书"""
-    try:
-        print(f"[证书续期] 开始为 {domain} 续期Let's Encrypt证书")
-        
-        # 使用certbot续期
-        certbot_renew_cmd = [
-            "certbot", "renew",
-            "--non-interactive",
-            "--agree-tos",
-            "--cert-name", domain,
-            "--post-hook", f"cp /etc/letsencrypt/live/{domain}/fullchain.pem {domain}.crt && cp /etc/letsencrypt/live/{domain}/privkey.pem {domain}.key"
-        ]
-        
-        result = subprocess.run(certbot_renew_cmd, capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            print(f"[证书续期] {domain} 证书续期成功")
-            return True
-        else:
-            print(f"[证书续期] {domain} 证书续期失败: {result.stderr}")
-            
-            # 如果续期失败，尝试重新获取
-            print(f"[证书续期] 尝试重新获取 {domain} 证书")
-            certbot_cmd = [
-                "certbot", "certonly",
-                "--standalone",
-                "--non-interactive",
-                "--agree-tos",
-                "--register-unsafely-without-email",
-                "--domain", domain,
-                "--cert-name", domain,
-                "--force-renewal"
-            ]
-            
-            result = subprocess.run(certbot_cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                letsencrypt_dir = f"/etc/letsencrypt/live/{domain}"
-                subprocess.run(["cp", f"{letsencrypt_dir}/fullchain.pem", f"{domain}.crt"], check=True)
-                subprocess.run(["cp", f"{letsencrypt_dir}/privkey.pem", f"{domain}.key"], check=True)
-                print(f"[证书续期] {domain} 证书重新获取成功")
-                return True
-            else:
-                print(f"[证书续期] {domain} 证书重新获取失败: {result.stderr}")
-                return False
-                
-    except Exception as e:
-        print(f"[证书续期] 续期过程中发生异常: {str(e)}")
-        return False
-
-def certificate_renewal_monitor(domain: str):
-    """证书续期监控线程"""
-    print(f"[续期监控] 启动证书续期监控线程，域名: {domain}")
-    print(f"[续期配置] 检查间隔: {renewal_check_interval//3600}小时，续期阈值: {renewal_threshold_days}天")
-    
-    while not shutdown_event.is_set():
-        try:
-            cert_file = f"{domain}.crt"
-            if os.path.exists(cert_file):
-                is_near_expiry, days_remaining = check_certificate_expiry(cert_file)
-                
-                if is_near_expiry:
-                    print(f"[续期警告] 证书将在 {days_remaining} 天后到期，开始续期")
-                    
-                    if renew_certificate(domain):
-                        # 重新加载TLS上下文
-                        reload_tls_context(domain)
-                        print(f"[续期成功] 证书已续期并重新加载TLS上下文")
-                    else:
-                        print(f"[续期失败] 证书续期失败，将在下次检查时重试")
-                else:
-                    print(f"[续期检查] 证书正常，剩余 {days_remaining} 天")
-            else:
-                print(f"[续期检查] 证书文件不存在: {cert_file}")
-                
-        except Exception as e:
-            print(f"[续期监控] 检查过程中发生异常: {str(e)}")
-        
-        # 等待下次检查，同时监听关闭事件
-        for _ in range(renewal_check_interval):
-            if shutdown_event.is_set():
-                break
-            time.sleep(1)
-
-def reload_tls_context(domain: str):
-    """重新加载TLS上下文"""
-    global tls_context
-    
-    try:
         cert_file = f"{domain}.crt"
         key_file = f"{domain}.key"
         
-        if os.path.exists(cert_file) and os.path.exists(key_file):
-            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-            ssl_context.load_cert_chain(certfile=cert_file, keyfile=key_file)
-            ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
-            tls_context = ssl_context
-            print(f"[TLS重载] SSL/TLS上下文重新加载成功")
-        else:
-            print(f"[TLS重载] 证书文件不存在，无法重新加载")
+        # 复制证书文件
+        subprocess.run(["cp", f"{acme_dir}/fullchain.cer", cert_file], check=True)
+        subprocess.run(["cp", f"{acme_dir}/{domain}.key", key_file], check=True)
+        print(f"[证书复制] 证书文件复制成功: {cert_file}, {key_file}")
+        
     except Exception as e:
-        print(f"[TLS重载] 重新加载TLS上下文失败: {str(e)}")
+        print(f"[证书复制] 复制证书文件失败: {str(e)}")
+        raise
 
 def generate_certs(domain="localhost"):
     #   生成证书文件
@@ -164,20 +51,10 @@ def generate_certs(domain="localhost"):
     
     if os.path.exists(cert_file) and os.path.exists(key_file):
         print(f"[证书状态] 证书文件已存在: {cert_file}, {key_file}")
-        
-        # 检查证书到期时间
-        is_near_expiry, days_remaining = check_certificate_expiry(cert_file)
-        if is_near_expiry and domain != "localhost":
-            print(f"[证书警告] 证书将在 {days_remaining} 天后到期，尝试续期")
-            if renew_certificate(domain):
-                print(f"[证书续期] 证书续期成功")
-            else:
-                print(f"[证书续期] 证书续期失败，将使用现有证书")
-        
         return True, cert_file, key_file
     
     if domain == "localhost":
-        print(f"[证书生成] 测试环境 生成自签名证书")
+        print(f"[证书生成] 生成自签名证书")
         print(f"[证书配置] 有效期: 365天, 算法: RSA-2048")
         openssl_cmd = [
             "openssl", "req", "-x509", "-newkey", "rsa:2048",
@@ -189,25 +66,19 @@ def generate_certs(domain="localhost"):
         print(f"[证书完成] 自签名证书生成成功: {cert_file}")
         return True, cert_file, key_file
     else:
-        print(f"[证书生成] 正在使用Certbot为 {domain} 生成Let's Encrypt证书")
-        certbot_cmd = [
-            "certbot", "certonly",
-            "--standalone",
-            "--non-interactive",
-            "--agree-tos",
-            "--register-unsafely-without-email",
-            "--domain", domain,
-            "--cert-name", domain
+        print(f"[证书生成] 正在使用acme.sh为 {domain} 生成Let's Encrypt证书")
+        acme_cmd = [
+            "acme.sh", "--issue", "-d", domain, "--standalone"
         ]
-        subprocess.run(certbot_cmd, check=True)
+        result = subprocess.run(acme_cmd, capture_output=True, text=True)
         
-        # Let's Encrypt证书存储在/etc/letsencrypt/live/domain/目录下
-        letsencrypt_dir = f"/etc/letsencrypt/live/{domain}"
-        print(f"[证书复制] 从 {letsencrypt_dir} 复制证书文件")
-        subprocess.run(["cp", f"{letsencrypt_dir}/fullchain.pem", cert_file], check=True)
-        subprocess.run(["cp", f"{letsencrypt_dir}/privkey.pem", key_file], check=True)
-        print(f"[证书完成] Let's Encrypt证书生成成功: {cert_file}")
-        return True, cert_file, key_file
+        if result.returncode == 0:
+            copy_certificate_files(domain)
+            print(f"[证书完成] Let's Encrypt证书生成成功: {cert_file}")
+            return True, cert_file, key_file
+        else:
+            print(f"[证书生成] Let's Encrypt证书生成失败: {result.stderr}")
+            return False, None, None
 
 #   核心逻辑
 def validate_password(password: str) -> bool:
@@ -375,18 +246,16 @@ async def handle_client(websocket):
 
 #   服务器初始化
 async def main():
-    global shadowsocks_password, listen_port, server_domain, tls_context, shutdown_event, cert_renewal_thread
+    global shadowsocks_password, listen_port, server_domain, tls_context, shutdown_event
     
-    #   使用全局变量配置的域名
     # 转换为Punycode格式用于证书生成（如果有中文字符）
     if any(ord(char) > 127 for char in server_domain):
         punycode_domain = idna.encode(server_domain).decode('ascii')
         print(f"{server_domain} = {punycode_domain}")
         server_domain = punycode_domain
-        original_domain = server_domain
     
     #   生成证书
-    _, cert_file, key_file = generate_certs(server_domain)
+    success, cert_file, key_file = generate_certs(server_domain)
     
     # 使用全局变量配置的Shadowsocks密码
     if not shadowsocks_password:
@@ -411,16 +280,6 @@ async def main():
     # 初始化关闭事件
     shutdown_event = asyncio.Event()
     
-    # 启动证书续期监控（仅对非localhost域名）
-    if server_domain != "localhost":
-        cert_renewal_thread = threading.Thread(
-            target=certificate_renewal_monitor, 
-            args=(server_domain,),
-            daemon=True
-        )
-        cert_renewal_thread.start()
-        print(f"[续期监控] 证书自动续期监控已启动")
-    
     print("=" * 50)
     print("SS+WS+TLS 代理")
     print("=" * 50)
@@ -430,8 +289,6 @@ async def main():
     print("加密方式: none (通过TLS加密)")
     if server_domain == "localhost":
         print("使用自签名证书，客户端需要跳过证书验证")
-    else:
-        print(f"证书自动续期: 已启用 (到期前{renewal_threshold_days}天续期)")
     print("=" * 50)
 
     server = await websockets.serve(
