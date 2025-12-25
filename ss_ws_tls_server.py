@@ -51,14 +51,10 @@ def find_certificate_files():
 #   核心逻辑
 
 async def process_request(path, request_headers):
-    """处理请求，验证路径和WebSocket升级头"""
+    """处理请求，验证路径"""
     # 检查路径
     if path != verify_path:
         return None, None, 403, b"Forbidden: Invalid path"
-    
-    # 检查WebSocket升级头
-    if 'websocket' not in request_headers.get('upgrade', '').lower():
-        return None, None, 426, b"Upgrade Required: WebSocket only"
     
     # 通过验证，允许继续WebSocket握手
     return None, None, None, None
