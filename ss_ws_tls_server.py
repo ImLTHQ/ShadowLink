@@ -1,12 +1,12 @@
 import asyncio
 import websockets
 import ssl
-import re
 import socket
 import os
 from typing import Tuple, Optional
 
 # 需要修改的关键配置
+verify_path = "/password"  # WebSocket路径(代替密码作为验证)
 listen_port = 443   # 服务器监听端口
 
 # 无需修改的全局变量
@@ -50,6 +50,19 @@ def find_certificate_files():
 
 #   核心逻辑
 
+async def process_request(path, request_headers):
+    """处理请求，验证路径和WebSocket升级头"""
+    # 检查路径
+    if path != verify_path:
+        return None, None, 403, b"Forbidden: Invalid path"
+    
+    # 检查WebSocket升级头
+    if 'websocket' not in request_headers.get('upgrade', '').lower():
+        return None, None, 426, b"Upgrade Required: WebSocket only"
+    
+    # 通过验证，允许继续WebSocket握手
+    return None, None, None, None
+
 def parse_shadowsocks_request(data: bytes) -> Tuple[Optional[str], Optional[int]]:
     try:
         if len(data) < 2:
@@ -85,9 +98,15 @@ def parse_shadowsocks_request(data: bytes) -> Tuple[Optional[str], Optional[int]
     except Exception:
         return None, None
 
-async def handle_client(websocket):
+async def handle_client(websocket, path):
     global connection_count, active_connections
     
+    # 验证路径
+    if path != verify_path:
+        print(f"[拒绝访问] 客户端IP: {websocket.remote_address[0] if websocket.remote_address else 'unknown'}, 路径: {path}")
+        await websocket.close(code=403, reason="Forbidden")
+        return
+
     client_ip = websocket.remote_address[0] if websocket.remote_address else "unknown"
     connection_count += 1
     active_connections.add(client_ip)
@@ -259,7 +278,8 @@ async def main():
         ping_interval=10,
         ping_timeout=10,
         extensions=[],
-        subprotocols=None
+        subprotocols=None,
+        process_request=process_request
     )
     await shutdown_event.wait()
 
