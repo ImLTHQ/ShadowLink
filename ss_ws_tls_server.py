@@ -219,6 +219,13 @@ def generate_certs(domain="localhost"):
         ]
         result = subprocess.run(acme_cmd, capture_output=True, text=True)
         
+        print(f"[ACME调试] 命令: {' '.join(acme_cmd)}")
+        print(f"[ACME调试] 返回码: {result.returncode}")
+        if result.stdout:
+            print(f"[ACME输出] {result.stdout}")
+        if result.stderr:
+            print(f"[ACME错误] {result.stderr}")
+        
         if result.returncode == 0:
             if copy_certificate_files(domain):
                 print(f"[证书完成] Let's Encrypt证书生成成功: {cert_file}")
@@ -238,9 +245,15 @@ def generate_certs(domain="localhost"):
                 
                 # 重新申请证书
                 print(f"[证书生成] 重新申请 {domain} 的Let's Encrypt证书")
-                result = subprocess.run(acme_cmd, capture_output=True, text=True)
+                retry_result = subprocess.run(acme_cmd, capture_output=True, text=True)
                 
-                if result.returncode == 0:
+                print(f"[ACME重试调试] 返回码: {retry_result.returncode}")
+                if retry_result.stdout:
+                    print(f"[ACME重试输出] {retry_result.stdout}")
+                if retry_result.stderr:
+                    print(f"[ACME重试错误] {retry_result.stderr}")
+                
+                if retry_result.returncode == 0:
                     if copy_certificate_files(domain):
                         print(f"[证书完成] 重新申请Let's Encrypt证书成功: {cert_file}")
                         return True, cert_file, key_file
@@ -248,11 +261,29 @@ def generate_certs(domain="localhost"):
                         print(f"[证书复制] 新证书复制失败")
                         return False, None, None
                 else:
-                    print(f"[证书生成] 重新申请Let's Encrypt证书失败: {result.stderr}")
+                    print(f"[证书生成] 重新申请Let's Encrypt证书失败")
                     return False, None, None
         else:
-            print(f"[证书生成] Let's Encrypt证书生成失败: {result.stderr}")
-            return False, None, None
+            print(f"[证书生成] Let's Encrypt证书生成失败")
+            # 尝试从acme.sh目录复制现有证书
+            home_dir = os.path.expanduser("~")
+            acme_dir = f"{home_dir}/.acme.sh/{domain}"
+            
+            if os.path.exists(acme_dir):
+                print(f"[证书尝试] 尝试从acme.sh目录复制现有证书")
+                if copy_certificate_files(domain):
+                    if os.path.exists(cert_file) and os.path.exists(key_file):
+                        print(f"[证书完成] 从acme.sh目录复制证书成功: {cert_file}")
+                        return True, cert_file, key_file
+                    else:
+                        print(f"[证书复制] 复制后证书文件仍不存在")
+                        return False, None, None
+                else:
+                    print(f"[证书复制] 从acme.sh目录复制证书失败")
+                    return False, None, None
+            else:
+                print(f"[证书尝试] acme.sh目录不存在，无法复制现有证书")
+                return False, None, None
 
 #   核心逻辑
 def validate_password(password: str) -> bool:
@@ -490,11 +521,22 @@ async def main():
     #   配置TLS上下文
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     try:
+        print(f"[TLS配置] 加载证书文件: {cert_file}, {key_file}")
+        if not os.path.exists(cert_file):
+            print(f"[TLS错误] 证书文件不存在: {cert_file}")
+            return
+        if not os.path.exists(key_file):
+            print(f"[TLS错误] 私钥文件不存在: {key_file}")
+            return
+            
         ssl_context.load_cert_chain(certfile=cert_file, keyfile=key_file)
         ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
         tls_context = ssl_context
+        print(f"[TLS配置] TLS配置成功")
     except Exception as e:
         print(f"[TLS错误] TLS配置失败：{str(e)}")
+        print(f"[TLS调试] 证书文件路径: {os.path.abspath(cert_file)}")
+        print(f"[TLS调试] 私钥文件路径: {os.path.abspath(key_file)}")
         return
 
     # 初始化关闭事件
