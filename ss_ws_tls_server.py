@@ -18,6 +18,26 @@ connection_count = 0
 total_bytes_transferred = 0
 active_connections = set()
 
+# 错误路径日志记录
+logged_invalid_paths = set()  # 用于去重
+
+def log_invalid_path(client_ip: str, path: str):
+    """记录无效路径到日志文件"""
+    log_entry = f"客户端IP: {client_ip}, 路径: {path}"
+    
+    # 去重检查
+    if log_entry in logged_invalid_paths:
+        return
+    
+    logged_invalid_paths.add(log_entry)
+    
+    # 写入到文件
+    try:
+        with open("server.log", "a", encoding="utf-8") as f:
+            f.write(log_entry + "\n")
+    except Exception as e:
+        print(f"[错误] 无法写入日志文件: {str(e)}")
+
 def find_certificate_files():
     """从当前目录查找证书文件"""
     import glob
@@ -60,6 +80,8 @@ async def process_request(path, request_headers):
     # 检查路径
     if path != verify_path:
         print(f"[拒绝访问] 客户端IP: {client_ip}, 路径: {path}")
+        # 记录到日志文件
+        log_invalid_path(client_ip, path)
         from websockets.exceptions import AbortHandshake
         raise AbortHandshake(status=403, headers={}, body=b"Forbidden: Invalid path")
 
