@@ -3,6 +3,7 @@ import websockets
 import ssl
 import socket
 import os
+import idna
 from typing import Tuple, Optional, Dict, Set
 
 # 配置参数
@@ -147,9 +148,22 @@ async def forward_data(src, dst, direction: str, connection_id: str):
         pass
     return bytes_transferred
 
+def encode_domain_for_uri(domain: str) -> str:
+    """将域名（包括中文域名）编码为适用于URI的格式"""
+    try:
+        # 如果域名包含非ASCII字符，使用punycode编码
+        if any(ord(c) > 127 for c in domain):
+            import idna
+            return idna.encode(domain).decode('ascii')
+        return domain
+    except Exception:
+        return domain
+
 async def connect_to_remote_proxy():
     """连接到代理"""
-    uri = f"wss://{remote_ss_host}:{remote_ss_port}{remote_verify_path}"
+    # 编码中文域名为punycode格式
+    encoded_host = encode_domain_for_uri(remote_ss_host)
+    uri = f"wss://{encoded_host}:{remote_ss_port}{remote_verify_path}"
     
     try:
         # 创建远程SSL上下文（客户端）- 生产环境安全配置
@@ -158,7 +172,7 @@ async def connect_to_remote_proxy():
         ssl_context.verify_mode = ssl.CERT_REQUIRED  # 生产环境必须验证证书
         ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3  # 最低TLS 1.3
         
-        print(f"[远程] 正在连接到代理: {uri}")
+        print(f"[远程] 正在连接到代理: {remote_ss_host} (编码为: {encoded_host})")
         remote_ws = await websockets.connect(
             uri,
             ssl=ssl_context,
