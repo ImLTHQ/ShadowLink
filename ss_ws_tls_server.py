@@ -30,17 +30,27 @@ def find_certificate_files():
     print(f"[证书查找] 找到的证书文件: {cert_files}")
     print(f"[证书查找] 找到的私钥文件: {key_files}")
     
-    # 尝试匹配证书和私钥对
-    for cert_file in cert_files:
-        base_name = cert_file[:-4]  # 移除.crt后缀
-        expected_key_file = f"{base_name}.key"
-        
-        if expected_key_file in key_files:
-            print(f"[证书查找] 找到匹配的证书对: {cert_file} 和 {expected_key_file}")
-            return True, cert_file, expected_key_file
+    # 检查证书文件数量
+    if len(cert_files) == 0:
+        print(f"[证书查找] 错误: 未找到证书文件 (.crt)")
+        return False, None, None
+    elif len(cert_files) > 1:
+        print(f"[证书查找] 错误: 找到多个证书文件 {cert_files}，请只保留一个")
+        return False, None, None
     
-    print(f"[证书查找] 未找到匹配的证书和私钥对")
-    return False, None, None
+    # 检查私钥文件数量
+    if len(key_files) == 0:
+        print(f"[证书查找] 错误: 未找到私钥文件 (.key)")
+        return False, None, None
+    elif len(key_files) > 1:
+        print(f"[证书查找] 错误: 找到多个私钥文件 {key_files}，请只保留一个")
+        return False, None, None
+    
+    # 只有一个证书和一个私钥，使用它们
+    cert_file = cert_files[0]
+    key_file = key_files[0]
+    print(f"[证书查找] 使用证书: {cert_file} 和私钥: {key_file}")
+    return True, cert_file, key_file
 
 #   核心逻辑
 def validate_password(password: str) -> bool:
