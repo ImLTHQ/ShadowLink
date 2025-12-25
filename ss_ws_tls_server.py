@@ -6,6 +6,7 @@ import socket
 import os
 import subprocess
 import idna
+import datetime
 from typing import Tuple, Optional
 
 # 需要修改的关键配置
@@ -22,6 +23,89 @@ shutdown_event = None
 connection_count = 0
 total_bytes_transferred = 0
 active_connections = set()
+
+# 定时检查相关
+last_check_time = None
+check_interval = datetime.timedelta(days=7)  # 每7天检查一次
+
+def check_certificate_expiry(cert_file: str) -> Tuple[bool, bool, datetime.datetime]:
+    """检查证书到期时间，返回(是否已过期, 是否需要重新申请, 到期时间)"""
+    try:
+        # 使用openssl获取证书到期时间
+        result = subprocess.run([
+            "openssl", "x509", "-in", cert_file, "-noout", "-enddate"
+        ], capture_output=True, text=True, check=True)
+        
+        # 解析输出获取到期时间
+        output = result.stdout.strip()
+        if "notAfter=" in output:
+            date_str = output.split("notAfter=")[1].strip()
+            # 格式: "Month Day HH:MM:SS YYYY GMT"
+            expiry_date = datetime.datetime.strptime(date_str, "%b %d %H:%M:%S %Y %GMT")
+            # 转换为本地时间
+            expiry_date = expiry_date.replace(tzinfo=datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.timezone.utc)
+            
+            # 计算距离到期的天数
+            days_until_expiry = (expiry_date - now).days
+            is_expired = now >= expiry_date
+            needs_renewal = days_until_expiry <= 30  # 提前30天重新申请
+            
+            if is_expired:
+                print(f"[证书检查] 证书已过期: 到期时间 {expiry_date}")
+            elif needs_renewal:
+                print(f"[证书检查] 证书即将到期: 到期时间 {expiry_date} (剩余{days_until_expiry}天)")
+            else:
+                print(f"[证书检查] 证书有效: 到期时间 {expiry_date} (剩余{days_until_expiry}天)")
+            
+            return is_expired, needs_renewal, expiry_date
+        else:
+            print(f"[证书检查] 无法解析证书到期时间: {output}")
+            return True, True, datetime.datetime.now(datetime.timezone.utc)  # 假设已过期且需要重新申请
+            
+    except subprocess.CalledProcessError as e:
+        print(f"[证书检查] 无法读取证书文件: {cert_file} - {str(e)}")
+        return True, True, datetime.datetime.now(datetime.timezone.utc)  # 假设已过期且需要重新申请
+    except Exception as e:
+        print(f"[证书检查] 检查证书到期时间失败: {str(e)}")
+        return True, True, datetime.datetime.now(datetime.timezone.utc)  # 假设已过期且需要重新申请
+
+def delete_certificate_files(domain: str):
+    """删除acme.sh和当前目录下的证书文件"""
+    try:
+        home_dir = os.path.expanduser("~")
+        acme_dir = f"{home_dir}/.acme.sh/{domain}"
+        
+        cert_file = f"{domain}.crt"
+        key_file = f"{domain}.key"
+        
+        # 删除当前目录的证书文件
+        deleted_files = []
+        if os.path.exists(cert_file):
+            os.remove(cert_file)
+            deleted_files.append(cert_file)
+        if os.path.exists(key_file):
+            os.remove(key_file)
+            deleted_files.append(key_file)
+        
+        # 删除acme.sh目录下的证书
+        if os.path.exists(acme_dir):
+            subprocess.run(["rm", "-rf", acme_dir], check=True)
+            deleted_files.append(f"acme目录: {acme_dir}")
+        
+        if deleted_files:
+            print(f"[证书删除] 已删除证书文件: {', '.join(deleted_files)}")
+            return True
+        else:
+            print(f"[证书删除] 没有找到需要删除的证书文件")
+            return True
+            
+    except subprocess.CalledProcessError as e:
+        print(f"[证书删除] 删除命令失败: {str(e)}")
+        return False
+    except Exception as e:
+        print(f"[证书删除] 删除证书文件失败: {str(e)}")
+        return False
 
 def copy_certificate_files(domain: str):
     """从acme.sh目录复制证书文件到当前目录"""
@@ -50,6 +134,17 @@ def copy_certificate_files(domain: str):
             print(f"[证书复制] 私钥文件不存在: {key_path}")
             return False
         
+        # 检查证书是否已过期或需要重新申请
+        is_expired, needs_renewal, expiry_date = check_certificate_expiry(cert_path)
+        if is_expired or needs_renewal:
+            if is_expired:
+                print(f"[证书检查] 证书已过期，需要重新申请")
+            else:
+                print(f"[证书检查] 证书即将到期，需要重新申请")
+            return False
+        else:
+            print(f"[证书检查] 证书有效且无需重新申请")
+        
         # 复制证书文件
         subprocess.run(["cp", cert_path, cert_file], check=True)
         subprocess.run(["cp", key_path, key_file], check=True)
@@ -70,9 +165,26 @@ def generate_certs(domain="localhost"):
     
     print(f"[证书检查] 检查 {domain} 的证书文件")
     
+    # 检查当前目录的证书文件是否存在和是否过期
     if os.path.exists(cert_file) and os.path.exists(key_file):
         print(f"[证书状态] 证书文件已存在: {cert_file}, {key_file}")
-        return True, cert_file, key_file
+        
+        # 检查证书是否已过期或需要重新申请
+        is_expired, needs_renewal, expiry_date = check_certificate_expiry(cert_file)
+        if is_expired or needs_renewal:
+            if is_expired:
+                print(f"[证书状态] 证书已过期: 到期时间 {expiry_date}")
+            else:
+                print(f"[证书状态] 证书即将到期: 到期时间 {expiry_date}")
+            print(f"[证书操作] 删除证书文件并重新申请")
+            if delete_certificate_files(domain):
+                print(f"[证书操作] 证书删除完成，重新申请新证书")
+            else:
+                print(f"[证书错误] 删除证书失败")
+                return False, None, None
+        else:
+            print(f"[证书状态] 证书有效且无需重新申请")
+            return True, cert_file, key_file
     
     if domain == "localhost":
         print(f"[证书生成] 生成自签名证书")
@@ -92,11 +204,14 @@ def generate_certs(domain="localhost"):
         acme_dir = f"{home_dir}/.acme.sh/{domain}"
         
         if os.path.exists(acme_dir):
-            print(f"[证书检查] 发现acme.sh证书目录，尝试复制现有证书")
+            print(f"[证书检查] 发现acme.sh证书目录，检查现有证书状态")
             if copy_certificate_files(domain):
                 if os.path.exists(cert_file) and os.path.exists(key_file):
                     print(f"[证书完成] 现有Let's Encrypt证书复制成功: {cert_file}")
                     return True, cert_file, key_file
+            else:
+                print(f"[证书检查] 现有证书无效或已过期，删除旧证书并重新申请")
+                delete_certificate_files(domain)
         
         print(f"[证书生成] 正在使用acme.sh为 {domain} 生成Let's Encrypt证书")
         acme_cmd = [
@@ -117,8 +232,24 @@ def generate_certs(domain="localhost"):
                 print(f"[证书完成] 现有Let's Encrypt证书复制成功: {cert_file}")
                 return True, cert_file, key_file
             else:
-                print(f"[证书复制] 无法复制现有证书")
-                return False, None, None
+                print(f"[证书复制] 无法复制现有证书，可能证书已过期")
+                print(f"[证书操作] 删除现有证书并重新申请")
+                delete_certificate_files(domain)
+                
+                # 重新申请证书
+                print(f"[证书生成] 重新申请 {domain} 的Let's Encrypt证书")
+                result = subprocess.run(acme_cmd, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    if copy_certificate_files(domain):
+                        print(f"[证书完成] 重新申请Let's Encrypt证书成功: {cert_file}")
+                        return True, cert_file, key_file
+                    else:
+                        print(f"[证书复制] 新证书复制失败")
+                        return False, None, None
+                else:
+                    print(f"[证书生成] 重新申请Let's Encrypt证书失败: {result.stderr}")
+                    return False, None, None
         else:
             print(f"[证书生成] Let's Encrypt证书生成失败: {result.stderr}")
             return False, None, None
@@ -287,9 +418,55 @@ async def handle_client(websocket):
         except Exception:
             pass
 
+async def periodic_cert_check():
+    """定时检查证书的任务"""
+    global last_check_time, server_domain
+    
+    while not shutdown_event.is_set():
+        try:
+            now = datetime.datetime.now()
+            
+            # 检查是否需要进行定时检查
+            if last_check_time is None or (now - last_check_time) >= check_interval:
+                print(f"[定时检查] 开始执行证书检查 (上次检查: {last_check_time})")
+                
+                # 检查证书状态
+                cert_file = f"{server_domain}.crt"
+                key_file = f"{server_domain}.key"
+                
+                if os.path.exists(cert_file) and os.path.exists(key_file):
+                    is_expired, needs_renewal, expiry_date = check_certificate_expiry(cert_file)
+                    
+                    if is_expired or needs_renewal:
+                        print(f"[定时检查] 证书需要更新，开始重新申请")
+                        if delete_certificate_files(server_domain):
+                            success, new_cert, new_key = generate_certs(server_domain)
+                            if success:
+                                print(f"[定时检查] 证书更新成功")
+                            else:
+                                print(f"[定时检查] 证书更新失败")
+                        else:
+                            print(f"[定时检查] 删除旧证书失败")
+                    else:
+                        print(f"[定时检查] 证书状态良好，无需更新")
+                else:
+                    print(f"[定时检查] 证书文件不存在，重新生成")
+                    success, new_cert, new_key = generate_certs(server_domain)
+                    if not success:
+                        print(f"[定时检查] 证书生成失败")
+                
+                last_check_time = now
+            
+            # 每6小时检查一次时间间隔
+            await asyncio.sleep(6 * 3600)
+            
+        except Exception as e:
+            print(f"[定时检查] 检查过程出错: {str(e)}")
+            await asyncio.sleep(3600)  # 出错时1小时后重试
+
 #   服务器初始化
 async def main():
-    global shadowsocks_password, listen_port, server_domain, tls_context, shutdown_event
+    global shadowsocks_password, listen_port, server_domain, tls_context, shutdown_event, last_check_time
     
     # 转换为Punycode格式用于证书生成（如果有中文字符）
     if any(ord(char) > 127 for char in server_domain):
@@ -344,6 +521,12 @@ async def main():
         extensions=[],
         subprotocols=None
     )
+    
+    # 启动定时检查任务
+    last_check_time = datetime.datetime.now()
+    asyncio.create_task(periodic_cert_check())
+    
+    print(f"[服务器] 代理服务器已启动，定时检查已启用 (每{check_interval.days}天检查一次)")
     
     await shutdown_event.wait()
 
