@@ -14,6 +14,8 @@ curl https://get.acme.sh | sh && ln -s  /root/.acme.sh/acme.sh /usr/local/bin/ac
 
 acme.sh --set-default-ca --server letsencrypt
 
+DOMAIN="在这里填写域名" && acme.sh --issue -d $DOMAIN --standalone && acme.sh --installcert -d $DOMAIN --ecc --key-file /root/server.key --fullchain-file /root/server.crt
+
 wget https://raw.githubusercontent.com/ImLTHQ/ShadowLink/main/ss_ws_tls_server.py && nano ss_ws_tls_server.py
 
 (nohup python3 ss_ws_tls_server.py > ss_ws_tls_server.log 2>&1 &) && tail -f ss_ws_tls_server.log
