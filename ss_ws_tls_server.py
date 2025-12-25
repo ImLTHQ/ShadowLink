@@ -6,7 +6,7 @@ import os
 from typing import Tuple, Optional
 
 # 需要修改的关键配置
-verify_path = "/password"  # WebSocket路径(代替密码作为验证)
+verify_path = "/password"  # WS路径(代替密码作为验证)
 listen_port = 443   # 服务器监听端口
 
 # 无需修改的全局变量
@@ -268,6 +268,7 @@ async def main():
     print(f"端口: {listen_port}")
     print("密码: 任意值")
     print("加密方式: none")
+    print(f"WS路径: {verify_path} (代替密码作为验证)")
     print("=" * 50)
 
     server = await websockets.serve(
