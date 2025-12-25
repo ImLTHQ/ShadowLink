@@ -33,14 +33,35 @@ def copy_certificate_files(domain: str):
         cert_file = f"{domain}.crt"
         key_file = f"{domain}.key"
         
-        # 复制证书文件
-        subprocess.run(["cp", f"{acme_dir}/fullchain.cer", cert_file], check=True)
-        subprocess.run(["cp", f"{acme_dir}/{domain}.key", key_file], check=True)
-        print(f"[证书复制] 证书文件复制成功: {cert_file}, {key_file}")
+        # 检查acme.sh证书目录是否存在
+        if not os.path.exists(acme_dir):
+            print(f"[证书复制] acme.sh证书目录不存在: {acme_dir}")
+            return False
         
+        # 构建完整的证书文件路径
+        cert_path = f"{acme_dir}/fullchain.cer"
+        key_path = f"{acme_dir}/{domain}.key"
+        
+        # 检查证书文件是否存在
+        if not os.path.exists(cert_path):
+            print(f"[证书复制] 证书文件不存在: {cert_path}")
+            return False
+        if not os.path.exists(key_path):
+            print(f"[证书复制] 私钥文件不存在: {key_path}")
+            return False
+        
+        # 复制证书文件
+        subprocess.run(["cp", cert_path, cert_file], check=True)
+        subprocess.run(["cp", key_path, key_file], check=True)
+        print(f"[证书复制] 证书文件复制成功: {cert_file}, {key_file}")
+        return True
+        
+    except subprocess.CalledProcessError as e:
+        print(f"[证书复制] 复制命令失败: {str(e)}")
+        return False
     except Exception as e:
         print(f"[证书复制] 复制证书文件失败: {str(e)}")
-        raise
+        return False
 
 def generate_certs(domain="localhost"):
     #   生成证书文件
@@ -66,6 +87,17 @@ def generate_certs(domain="localhost"):
         print(f"[证书完成] 自签名证书生成成功: {cert_file}")
         return True, cert_file, key_file
     else:
+        # 首先尝试复制已存在的证书
+        home_dir = os.path.expanduser("~")
+        acme_dir = f"{home_dir}/.acme.sh/{domain}"
+        
+        if os.path.exists(acme_dir):
+            print(f"[证书检查] 发现acme.sh证书目录，尝试复制现有证书")
+            if copy_certificate_files(domain):
+                if os.path.exists(cert_file) and os.path.exists(key_file):
+                    print(f"[证书完成] 现有Let's Encrypt证书复制成功: {cert_file}")
+                    return True, cert_file, key_file
+        
         print(f"[证书生成] 正在使用acme.sh为 {domain} 生成Let's Encrypt证书")
         acme_cmd = [
             "acme.sh", "--issue", "-d", domain, "--standalone"
@@ -73,9 +105,20 @@ def generate_certs(domain="localhost"):
         result = subprocess.run(acme_cmd, capture_output=True, text=True)
         
         if result.returncode == 0:
-            copy_certificate_files(domain)
-            print(f"[证书完成] Let's Encrypt证书生成成功: {cert_file}")
-            return True, cert_file, key_file
+            if copy_certificate_files(domain):
+                print(f"[证书完成] Let's Encrypt证书生成成功: {cert_file}")
+                return True, cert_file, key_file
+            else:
+                print(f"[证书复制] 证书复制失败")
+                return False, None, None
+        elif "Domains not changed" in result.stderr or "Skipping. Next renewal time" in result.stderr:
+            print(f"[证书状态] 证书已存在且未到期，尝试复制现有证书")
+            if copy_certificate_files(domain):
+                print(f"[证书完成] 现有Let's Encrypt证书复制成功: {cert_file}")
+                return True, cert_file, key_file
+            else:
+                print(f"[证书复制] 无法复制现有证书")
+                return False, None, None
         else:
             print(f"[证书生成] Let's Encrypt证书生成失败: {result.stderr}")
             return False, None, None
