@@ -26,30 +26,27 @@ def find_certificate_files():
     # 查找所有的.crt和.key文件
     cert_files = glob.glob("*.crt")
     key_files = glob.glob("*.key")
-    
-    print(f"[证书查找] 找到的证书文件: {cert_files}")
-    print(f"[证书查找] 找到的私钥文件: {key_files}")
-    
+
     # 检查证书文件数量
     if len(cert_files) == 0:
-        print(f"[证书查找] 错误: 未找到证书文件 (.crt)")
+        print(f"[证书] 错误: 未找到证书文件 (.crt)")
         return False, None, None
     elif len(cert_files) > 1:
-        print(f"[证书查找] 错误: 找到多个证书文件 {cert_files}，请只保留一个")
+        print(f"[证书] 错误: 找到多个证书文件 {cert_files}，请只保留一个")
         return False, None, None
     
     # 检查私钥文件数量
     if len(key_files) == 0:
-        print(f"[证书查找] 错误: 未找到私钥文件 (.key)")
+        print(f"[证书] 错误: 未找到私钥文件 (.key)")
         return False, None, None
     elif len(key_files) > 1:
-        print(f"[证书查找] 错误: 找到多个私钥文件 {key_files}，请只保留一个")
+        print(f"[证书] 错误: 找到多个私钥文件 {key_files}，请只保留一个")
         return False, None, None
     
     # 只有一个证书和一个私钥，使用它们
     cert_file = cert_files[0]
     key_file = key_files[0]
-    print(f"[证书查找] 使用证书: {cert_file} 和私钥: {key_file}")
+    print(f"[证书] 使用证书: {cert_file} 和私钥: {key_file}")
     return True, cert_file, key_file
 
 #   核心逻辑
@@ -241,22 +238,20 @@ async def main():
     #   配置TLS上下文
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     try:
-        print(f"[TLS配置] 加载证书文件: {cert_file}, {key_file}")
+        print(f"[TLS] 加载证书文件: {cert_file}, {key_file}")
         if not os.path.exists(cert_file):
-            print(f"[TLS错误] 证书文件不存在: {cert_file}")
+            print(f"[错误] 证书文件不存在: {cert_file}")
             return
         if not os.path.exists(key_file):
-            print(f"[TLS错误] 私钥文件不存在: {key_file}")
+            print(f"[错误] 私钥文件不存在: {key_file}")
             return
             
         ssl_context.load_cert_chain(certfile=cert_file, keyfile=key_file)
         ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
         tls_context = ssl_context
-        print(f"[TLS配置] TLS配置成功")
+        print(f"[TLS] 配置成功")
     except Exception as e:
-        print(f"[TLS错误] TLS配置失败：{str(e)}")
-        print(f"[TLS调试] 证书文件路径: {os.path.abspath(cert_file)}")
-        print(f"[TLS调试] 私钥文件路径: {os.path.abspath(key_file)}")
+        print(f"[错误] TLS配置失败：{str(e)}")
         return
 
     # 初始化关闭事件
