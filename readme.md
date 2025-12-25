@@ -8,7 +8,7 @@
 - `Ctrl + X` - 退出编辑器
 
 ```bash
-sudo apt update && sudo apt install python3 python3-pip python3-websockets socat -y
+sudo apt update && sudo apt install python3 python3-pip python3-websockets socat idn -y
 
 curl https://get.acme.sh | sh && ln -s  /root/.acme.sh/acme.sh /usr/local/bin/acme.sh
 
