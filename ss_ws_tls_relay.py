@@ -4,8 +4,6 @@ import ssl
 import socket
 import os
 from typing import Tuple, Optional, Dict, Set
-from dataclasses import dataclass
-from pathlib import Path
 
 # 配置参数
 local_listen_port = 443        # 本地监听端口
