@@ -14,9 +14,7 @@ curl https://get.acme.sh | sh && ln -s  /root/.acme.sh/acme.sh /usr/local/bin/ac
 
 acme.sh --set-default-ca --server letsencrypt
 
-acme.sh --issue -d 域名 --standalone
-
-acme.sh --installcert -d 域名 --ecc --key-file /root/server.key --fullchain-file /root/server.crt
+DOMAIN="域名" && acme.sh --issue -d $DOMAIN --standalone && acme.sh --installcert -d $DOMAIN --ecc --key-file /root/server.key --fullchain-file /root/server.crt
 
 wget https://raw.githubusercontent.com/ImLTHQ/ShadowLink/main/ss_ws_tls_server.py && nano ss_ws_tls_server.py
 
