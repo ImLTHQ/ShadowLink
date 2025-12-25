@@ -7,7 +7,6 @@ import os
 from typing import Tuple, Optional
 
 # 需要修改的关键配置
-shadowsocks_password = "password"   # 密码
 listen_port = 443   # 服务器监听端口
 
 # 无需修改的全局变量
@@ -50,9 +49,6 @@ def find_certificate_files():
     return True, cert_file, key_file
 
 #   核心逻辑
-def validate_password(password: str) -> bool:
-    pattern = r'^[a-zA-Z0-9]+$'
-    return bool(re.match(pattern, password))
 
 def parse_shadowsocks_request(data: bytes) -> Tuple[Optional[str], Optional[int]]:
     try:
@@ -217,23 +213,13 @@ async def handle_client(websocket):
 
 #   服务器初始化
 async def main():
-    global shadowsocks_password, listen_port, tls_context, shutdown_event
+    global listen_port, tls_context, shutdown_event
     
     #   查找证书文件
     success, cert_file, key_file = find_certificate_files()
     if not success:
         print("[错误] 在当前目录未找到匹配的证书和私钥文件 (*.crt 和 *.key)")
         return
-    
-    # 使用全局变量配置的Shadowsocks密码
-    if not shadowsocks_password:
-        print("[错误] 密码不能为空")
-        return
-    elif not validate_password(shadowsocks_password):
-        print("[错误] 密码只支持英文和数字字符")
-        return
-    else:
-        print(f"[密码状态] 密码格式通过")
 
     #   配置TLS上下文
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -260,9 +246,9 @@ async def main():
     print("=" * 50)
     print("SS+WS+TLS 代理")
     print("=" * 50)
-    print(f"监听端口: {listen_port}")
-    print(f"密码: {shadowsocks_password}")
-    print("加密方式: none (通过TLS加密)")
+    print(f"端口: {listen_port}")
+    print("密码: 任意值")
+    print("加密方式: none")
     print("=" * 50)
 
     server = await websockets.serve(
