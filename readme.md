@@ -18,10 +18,12 @@ DOMAIN="域名" && acme.sh --issue -d $DOMAIN --standalone && acme.sh --installc
 
 wget https://raw.githubusercontent.com/ImLTHQ/ShadowLink/main/ss_ws_tls_server.py && nano ss_ws_tls_server.py
 
-(nohup python3 ss_ws_tls_server.py > ss_ws_tls_server.log 2>&1 &) && tail -f ss_ws_tls_server.log
+(nohup python3 ss_ws_tls_server.py > ss_ws_tls_server.log 2>&1 &)
 ```
 
 ```bash
+tail -f ss_ws_tls_server.log
+
 ps aux | grep ss_ws_tls_server.py
 
 kill ID
