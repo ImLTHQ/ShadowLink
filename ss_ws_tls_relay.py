@@ -208,9 +208,7 @@ async def handle_local_client(local_ws, path):
             print(f"[解析失败] {client_ip}: 无法解析目标地址")
             await local_ws.close(code=1003)
             return
-        
-        print(f"[目标] {client_ip}: 请求连接 {target_addr}:{target_port}")
-        
+
         # 获取要传输的初始数据
         initial_data = b""
         if len(request_data) > data_offset:
