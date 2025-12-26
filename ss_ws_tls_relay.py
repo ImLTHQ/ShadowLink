@@ -164,7 +164,11 @@ async def connect_to_remote_proxy():
         ssl_context.verify_mode = ssl.CERT_REQUIRED  # 生产环境必须验证证书
         ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3  # 最低TLS 1.3
         
-        print(f"[远程] 正在连接到代理: {remote_ss_host} (编码为: {encoded_host})")
+        # 只有域名被编码时才显示编码信息
+        if encoded_host != remote_ss_host:
+            print(f"[远程] 正在连接到代理: {remote_ss_host} (编码为: {encoded_host})")
+        else:
+            print(f"[远程] 正在连接到代理: {remote_ss_host}")
         remote_ws = await websockets.connect(
             uri,
             ssl=ssl_context,
