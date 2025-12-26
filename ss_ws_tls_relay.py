@@ -173,13 +173,12 @@ async def connect_to_remote_proxy():
             uri,
             ssl=ssl_context,
             ping_interval=10,
-            ping_timeout=10,
-            extra_headers={"User-Agent": "ShadowLink-Proxy"}
+            ping_timeout=10
         )
         print(f"[远程] 成功连接到代理")
         return remote_ws
     except Exception as e:
-        print(f"[远程] 连接代理失败: {str(e)}")
+        print(f"[错误] {str(e)}")
         return None
 
 async def handle_local_client(local_ws, path):
