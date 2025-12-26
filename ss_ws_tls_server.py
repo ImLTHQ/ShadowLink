@@ -131,7 +131,7 @@ async def handle_client(websocket, path):
     active_connections.add(client_ip)
 
     print(f"[新连接] 客户端IP: {client_ip}")
-    print(f"[连接统计] 当前活跃连接数: {len(active_connections)}")
+    print(f"[统计] 当前活跃连接数: {len(active_connections)}")
     
     try:
         #   接收Shadowsocks请求数据
@@ -284,10 +284,11 @@ async def main():
     print("=" * 50)
     print("SS+WS+TLS 代理")
     print("=" * 50)
-    print(f"端口: {listen_port}")
     print("密码: 任意值")
     print("加密方式: none")
-    print(f"WS路径: {verify_path} (代替密码作为验证)")
+    print("=" * 50)
+    print(f"端口: {listen_port}")
+    print(f"WS路径: {verify_path}")
     print("=" * 50)
 
     server = await websockets.serve(

@@ -8,7 +8,7 @@ from typing import Tuple, Optional, Dict, Set
 
 # 配置参数
 local_listen_port = 443        # 本地监听端口
-local_verify_path = "/password"  # 本地WS路径
+local_verify_path = "/password"  # 本地WS路径 (代替密码作为验证)
 
 remote_ss_host = "domain.com"    # 代理服务器地址
 remote_verify_path = "/password" # 代理的WS路径
@@ -187,7 +187,7 @@ async def handle_local_client(local_ws, path):
     connection_count += 1
     active_connections.add(connection_id)
 
-    print(f"[本地] 新连接 用户IP: {client_ip}, 连接ID: {connection_id}")
+    print(f"[新连接] 客户端IP: {client_ip}")
     print(f"[统计] 当前活跃连接数: {len(active_connections)}")
     
     remote_ws = None
@@ -293,12 +293,13 @@ async def main():
     shutdown_event = asyncio.Event()
     
     print("=" * 50)
-    print("ShadowLink 中转代理服务器")
+    print("SS+WS+TLS 中转")
     print("=" * 50)
-    print(f"本地监听端口: {local_listen_port}")
-    print(f"本地WS路径: {local_verify_path}")
-    print(f"代理地址: {remote_ss_host}:{remote_ss_port}")
-    print(f"代理WS路径: {remote_verify_path}")
+    print("密码: 任意值")
+    print("加密方式: none")
+    print("=" * 50)
+    print(f"端口: {local_listen_port}")
+    print(f"WS路径: {local_verify_path}")
     print("=" * 50)
 
     # 启动本地WebSocket服务器
