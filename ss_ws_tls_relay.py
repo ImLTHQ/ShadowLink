@@ -75,7 +75,7 @@ async def process_local_request(path, request_headers):
         client_ip = client_ip.split(',')[0].strip()
     
     if path != local_verify_path:
-        print(f"[拒绝访问] 本地用户 IP: {client_ip}, 路径: {path}")
+        print(f"[拒绝访问] 客户端IP: {client_ip}, 路径: {path}")
         log_invalid_path(client_ip, path, "local")
         from websockets.exceptions import AbortHandshake
         raise AbortHandshake(status=403, headers={}, body=b"Forbidden: Invalid path")
