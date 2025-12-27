@@ -24,21 +24,7 @@ connection_count = 0
 active_connections: Set[str] = set()
 connection_pairs: Dict[str, Dict] = {}
 
-# 错误路径日志记录
-logged_invalid_paths = set()
 
-def log_invalid_path(path: str, source: str = "local"):
-    """去重记录无效路径到日志"""
-    if path in logged_invalid_paths:
-        return
-    
-    logged_invalid_paths.add(path)
-    
-    try:
-        with open("proxy.log", "a", encoding="utf-8") as f:
-            f.write(f"无效路径: {path}\n")
-    except Exception as e:
-        print(f"[错误] 无法写入日志文件: {str(e)}")
 
 def find_certificate_files():
     """从当前目录查找证书文件"""
@@ -70,7 +56,6 @@ async def process_local_request(path, request_headers):
     """处理本地用户请求，验证路径"""
     if path != local_verify_path:
         print(f"[拒绝访问] 路径: {path}")
-        log_invalid_path(path, "local")
         from websockets.exceptions import AbortHandshake
         raise AbortHandshake(status=403, headers={}, body=b"Forbidden: Invalid path")
     
