@@ -7,7 +7,7 @@ import idna
 from typing import Tuple, Optional, Dict, Set
 
 # 配置参数
-local_listen_port = 443        # 本地监听端口(国内未备案不可使用80和443)
+local_listen_port = 443        # 本地监听端口
 local_verify_path = "/password"  # 本地WS路径 (代替密码作为验证)
 
 remote_ss_host = "domain.com"    # 代理服务器地址
