@@ -21,20 +21,16 @@ active_connections = set()
 # 错误路径日志记录
 logged_invalid_paths = set()  # 用于去重
 
-def log_invalid_path(client_ip: str, path: str):
-    """记录无效路径到日志文件"""
-    log_entry = f"客户端IP: {client_ip}, 路径: {path}"
-    
-    # 去重检查
-    if log_entry in logged_invalid_paths:
+def log_invalid_path(path: str, source: str = "local"):
+    """去重记录无效路径到日志"""
+    if path in logged_invalid_paths:
         return
     
-    logged_invalid_paths.add(log_entry)
+    logged_invalid_paths.add(path)
     
-    # 写入到文件
     try:
-        with open("server.log", "a", encoding="utf-8") as f:
-            f.write(log_entry + "\n")
+        with open("proxy.log", "a", encoding="utf-8") as f:
+            f.write(f"无效路径: {path}\n")
     except Exception as e:
         print(f"[错误] 无法写入日志文件: {str(e)}")
 
