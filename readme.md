@@ -17,3 +17,26 @@ ps aux | grep ss_ws_tls_server.py
 
 kill ID
 ```
+
+# Hy2
+
+```bash
+wget -o server https://download.hysteria.network/app/latest/hysteria-linux-amd64-avx && chmod +x ./server && nano config.yaml && (nohup ./server &)
+```
+
+```bash
+acme:
+  domains:
+    - your-domain.com
+  email: your-email@example.com
+
+auth:
+  type: password
+  password: password 
+
+masquerade: 
+  type: proxy
+  proxy:
+    url: www.x-mol.com
+    rewriteHost: true
+```
