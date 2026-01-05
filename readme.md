@@ -10,6 +10,8 @@ acme:
     - your-domain.com
   email: your-email@example.com
 
+listen: :443
+
 auth:
   type: password
   password: password 
