@@ -7,19 +7,19 @@ wget -O hy2 https://github.com/apernet/hysteria/releases/download/app%2Fv2.6.5/h
 ```bash
 acme:
   domains:
-    - your-domain.com
-  email: your-email@example.com
+    - your-domain.com # 域名
+  email: your-email@example.com # 邮箱
 
 listen: :443
 
 auth:
   type: password
-  password: password 
+  password: password # 密码
 
 masquerade: 
   type: proxy
   proxy:
-    url: https://www.x-mol.com
+    url: https://www.x-mol.com # 伪装网站
     rewriteHost: true
 
 speedTest: true
