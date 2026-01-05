@@ -19,7 +19,7 @@ auth:
 obfs:
   type: salamander 
   salamander:
-    password: password
+    password: password # 混淆密码
 
 speedTest: true
 ```
