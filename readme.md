@@ -21,7 +21,7 @@ kill ID
 # Hy2
 
 ```bash
-wget -o server https://download.hysteria.network/app/latest/hysteria-linux-amd64-avx && chmod +x ./server && nano config.yaml && (nohup ./server &)
+wget -O hy2 https://github.com/apernet/hysteria/releases/download/app%2Fv2.6.5/hysteria-linux-amd64-avx && chmod +x ./hy2 && nano config.yaml && (nohup ./hy2 server &)
 ```
 
 ```bash
@@ -37,6 +37,6 @@ auth:
 masquerade: 
   type: proxy
   proxy:
-    url: www.x-mol.com
+    url: https://www.x-mol.com
     rewriteHost: true
 ```
