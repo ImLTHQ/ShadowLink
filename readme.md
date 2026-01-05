@@ -1,7 +1,7 @@
 # Hy2 Debian命令
 
 ```bash
-wget -O hy2 https://download.hysteria.network/app/latest/hysteria-linux-amd64-avx && chmod +x ./hy2 && nano config.yaml && (nohup ./hy2 server &)
+apt update && apt install -y iptables && wget -O hy2 https://download.hysteria.network/app/latest/hysteria-linux-amd64-avx && chmod +x ./hy2 && nano config.yaml && (nohup ./hy2 server &) && (nohup iptables -t nat -A PREROUTING -i eth0 -p udp --dport 6666:8888 -j REDIRECT --to-ports 443 &)
 ```
 
 ```bash
