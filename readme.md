@@ -16,11 +16,10 @@ auth:
   type: password
   password: password # 密码
 
-masquerade: 
-  type: proxy
-  proxy:
-    url: https://www.x-mol.com # 伪装网站
-    rewriteHost: true
+obfs:
+  type: salamander 
+  salamander:
+    password: password
 
 speedTest: true
 ```
