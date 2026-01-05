@@ -19,6 +19,8 @@ masquerade:
   proxy:
     url: https://www.x-mol.com
     rewriteHost: true
+
+speedTest: true
 ```
 
 ```bash
