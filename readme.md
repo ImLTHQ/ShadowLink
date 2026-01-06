@@ -33,9 +33,3 @@ ps aux | grep hy2
 
 kill ID
 ```
-
-# 中继
-
-```bash
-wget https://raw.githubusercontent.com/ImLTHQ/ShadowLink/main/server.py && nano server.py && (nohup python3 server.py &)
-```
