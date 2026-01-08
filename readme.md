@@ -1,7 +1,7 @@
 # Hy2
 
 ```bash
-apt update && apt install -y iptables && wget -O hy2 https://download.hysteria.network/app/latest/hysteria-linux-amd64-avx && chmod +x ./hy2 && nano config.yaml && (nohup ./hy2 server &)
+wget -O hy2 https://download.hysteria.network/app/latest/hysteria-linux-amd64-avx && chmod +x ./hy2 && nano config.yaml && (nohup ./hy2 server &)
 ```
 
 ```bash
