@@ -1,27 +1,46 @@
 # Hy2
 
 ```bash
-wget -O hy2 https://download.hysteria.network/app/latest/hysteria-linux-amd64-avx && chmod +x ./hy2 && nano config.yaml && (nohup ./hy2 server &)
+wget -O /root/hy2 https://download.hysteria.network/app/latest/hysteria-linux-amd64-avx && chmod +x /root/hy2 && nano /root/config.yaml && cat >/etc/systemd/system/hy2.service <<'EOF'
+[Unit]
+Description=Hysteria2
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root
+ExecStart=/root/hy2 server -c /root/config.yaml
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload && systemctl enable --now hy2 && systemctl status hy2
 ```
 
 ```bash
 acme:
   domains:
-    - your-domain.com # 域名
-  email: your-email@example.com # 邮箱
+    -  # 域名
+  email:  # 邮箱
 
-listen: :443
+listen: :12345-13337
 
 auth:
   type: password
-  password: password # 密码
+  password:  # 密码
 
-speedTest: true
+obfs:
+  type: salamander 
+  salamander:
+    password: # 密码
 
 masquerade:
   type: proxy
   proxy:
-    url: https://gta5-blackjack-helper.pages.dev
+    url: # 伪装网页地址
     rewriteHost: true 
   listenHTTP: :80 
   listenHTTPS: :443 
@@ -31,5 +50,5 @@ masquerade:
 ```bash
 ps aux | grep hy2
 
-kill ID
+pkill hy2
 ```
