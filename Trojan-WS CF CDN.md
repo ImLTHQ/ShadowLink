@@ -102,3 +102,13 @@ systemctl --no-pager --full status sing-box
 EOF
 )
 ```
+
+```bash
+ssh-keygen -R DOMAIN
+```
+
+```bash
+ps aux | grep sing-box
+
+pkill sing-box
+```
