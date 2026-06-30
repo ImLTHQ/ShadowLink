@@ -4,7 +4,7 @@
 bash <(cat <<'EOF'
 set -euo pipefail
 
-read -p "请输入域名 (不要开小黄云): " DOMAIN
+read -p "请输入域名: " DOMAIN
 read -s -p "请输入密码: " PASSWORD
 echo
 
@@ -16,7 +16,7 @@ curl -fsSL https://get.acme.sh | sh
 
 ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt
 
-# 申请证书 (注意：需要 80 端口可用 + 关闭小黄云)
+# 申请证书 (注意：需要 80 端口可用)
 ~/.acme.sh/acme.sh --issue \
 -d "$DOMAIN" \
 --standalone \
@@ -89,7 +89,7 @@ systemctl restart sing-box
 
 echo
 echo "=============================="
-echo "部署完毕 (可开小黄云)"
+echo "部署完毕"
 echo
 echo "域名: $DOMAIN"
 echo "端口: 443"
