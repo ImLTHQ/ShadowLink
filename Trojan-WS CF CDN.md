@@ -1,5 +1,6 @@
 # Trojan-WS-TLS CF CDN
 
+## 部署执行
 ```bash
 bash <(cat <<'EOF'
 set -euo pipefail
@@ -103,10 +104,12 @@ EOF
 )
 ```
 
+## 服务器重装系统后SSH需要输入
 ```bash
 ssh-keygen -R DOMAIN
 ```
 
+## 进程存活与结束
 ```bash
 ps aux | grep sing-box
 
