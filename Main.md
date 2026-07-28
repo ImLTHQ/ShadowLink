@@ -314,12 +314,6 @@ apt install -y nftables
 
 
 
-systemctl enable nftables
-
-systemctl start nftables
-
-
-
 ####################################
 # 配置防火墙
 ####################################
@@ -334,7 +328,7 @@ table inet filter {
 
     chain input {
 
-        type filter hook input priority filter;
+        type filter hook input priority 0;
 
         policy drop;
 
@@ -349,11 +343,16 @@ table inet filter {
         iif lo accept;
 
 
-        # ICMP / Ping
+        # Ping IPv4
 
         ip protocol icmp accept;
 
-        ip6 nexthdr icmpv6 accept;
+
+        # Ping IPv6
+
+        icmpv6 type echo-request accept;
+
+        icmpv6 type echo-reply accept;
 
 
         # SSH
@@ -381,7 +380,7 @@ table inet filter {
 
     chain forward {
 
-        type filter hook forward priority filter;
+        type filter hook forward priority 0;
 
         policy drop;
 
@@ -391,7 +390,7 @@ table inet filter {
 
     chain output {
 
-        type filter hook output priority filter;
+        type filter hook output priority 0;
 
         policy accept;
 
@@ -403,7 +402,18 @@ NFT
 
 
 
+####################################
+# 检查并应用 nftables
+####################################
+
+nft -c -f /etc/nftables.conf
+
 nft -f /etc/nftables.conf
+
+
+systemctl enable nftables
+
+systemctl restart nftables
 
 
 
@@ -483,13 +493,13 @@ echo "TLS启用"
 
 echo
 
-echo "Trojan: 443"
+echo "Trojan: TCP 443"
 
 echo "WS Path: /"
 
 echo
 
-echo "Hysteria2: 8443"
+echo "Hysteria2: UDP 8443"
 
 echo
 
