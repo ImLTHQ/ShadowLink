@@ -326,6 +326,7 @@ table inet filter {
 
         ip protocol icmp accept;
 
+        ip6 nexthdr icmpv6 accept;
 
         # SSH
 
