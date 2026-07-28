@@ -54,7 +54,7 @@ if pgrep -x sing-box >/dev/null 2>&1; then
 
         rm -rf /root/cert
 
-
+        rm -rf /root/.acme.sh
 
         ####################################
         # 删除 sing-box
@@ -161,7 +161,8 @@ fi
     --issue \
     -d "$DOMAIN" \
     --standalone \
-    --server letsencrypt
+    --server letsencrypt \
+    --force
 
 
 
