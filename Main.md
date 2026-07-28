@@ -12,15 +12,19 @@ set -euo pipefail
 
 
 ####################################
-# 检测已有 sing-box
+# 检测已有部署
 ####################################
 
-if pgrep -x sing-box >/dev/null 2>&1; then
+if pgrep -x sing-box >/dev/null 2>&1 \
+|| [ -f /etc/systemd/system/sing-box.service ] \
+|| [ -f /root/config.json ] \
+|| [ -d /root/.acme.sh ] \
+|| [ -f /etc/nftables.conf ]; then
 
     echo
-    echo "检测到 sing-box 正在运行"
+    echo "检测到已有部署"
     echo
-    echo "y = 完全清理旧部署（代理软件 + 防火墙配置）"
+    echo "y = 完全清理旧部署（代理软件 + 证书 + 防火墙）"
     echo "n = 退出"
     echo
 
@@ -45,16 +49,30 @@ if pgrep -x sing-box >/dev/null 2>&1; then
 
 
         ####################################
-        # 删除代理文件
+        # 删除 systemd
         ####################################
 
         rm -f /etc/systemd/system/sing-box.service
 
+
+
+        ####################################
+        # 删除代理配置
+        ####################################
+
         rm -f /root/config.json
+
+
+
+        ####################################
+        # 删除证书和 acme
+        ####################################
 
         rm -rf /root/cert
 
         rm -rf /root/.acme.sh
+
+
 
         ####################################
         # 删除 sing-box
@@ -88,6 +106,10 @@ if pgrep -x sing-box >/dev/null 2>&1; then
         systemctl disable nftables 2>/dev/null || true
 
 
+
+        ####################################
+        # 重载 systemd
+        ####################################
 
         systemctl daemon-reload
 
@@ -177,8 +199,7 @@ mkdir -p /root/cert
     --install-cert \
     -d "$DOMAIN" \
     --key-file /root/cert/private.key \
-    --fullchain-file /root/cert/fullchain.cer \
-    --reloadcmd "systemctl restart sing-box"
+    --fullchain-file /root/cert/fullchain.cer
 
 
 
@@ -258,6 +279,7 @@ cat >/root/config.json <<JSON
                 "key_path": "/root/cert/private.key"
             }
         }
+
     ],
 
 
@@ -283,7 +305,7 @@ $SINGBOX_BIN check \
 
 
 ####################################
-# 安装并配置 nftables
+# 安装 nftables
 ####################################
 
 apt update
@@ -297,6 +319,10 @@ systemctl enable nftables
 systemctl start nftables
 
 
+
+####################################
+# 配置防火墙
+####################################
 
 cat >/etc/nftables.conf <<NFT
 
@@ -323,18 +349,19 @@ table inet filter {
         iif lo accept;
 
 
-        # ICMP
+        # ICMP / Ping
 
         ip protocol icmp accept;
 
         ip6 nexthdr icmpv6 accept;
+
 
         # SSH
 
         tcp dport 22 accept;
 
 
-        # ACME HTTP验证
+        # ACME
 
         tcp dport 80 accept;
 
@@ -438,26 +465,31 @@ echo
 
 echo "=============================="
 
+echo
+
 echo "部署完成"
 
 echo
 
-echo "域名:"
-echo "$DOMAIN"
+echo "域名: $DOMAIN"
 
 echo
 
-echo "密码:"
-echo "$PASSWORD"
+echo "密码: $PASSWORD"
 
 echo
 
-echo "Trojan: 443(TCP)"
+echo "TLS启用"
+
+echo
+
+echo "Trojan: 443"
+
 echo "WS Path: /"
 
 echo
 
-echo "Hysteria2: 8443(UDP)"
+echo "Hysteria2: 8443"
 
 echo
 
