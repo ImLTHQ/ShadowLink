@@ -10,6 +10,7 @@ ssh 用户名@地址
 bash <(cat <<'EOF'
 set -euo pipefail
 
+
 ####################################
 # 检测已有 sing-box
 ####################################
@@ -19,11 +20,12 @@ if pgrep -x sing-box >/dev/null 2>&1; then
     echo
     echo "检测到 sing-box 正在运行"
     echo
-    echo "y = 完全清理旧部署"
+    echo "y = 完全清理旧部署（代理软件 + 防火墙配置）"
     echo "n = 退出"
     echo
+
     read -p "请选择 (y/n): " CHOICE
-    echo
+
 
     if [[ "$CHOICE" =~ ^[Yy]$ ]]; then
 
@@ -31,9 +33,20 @@ if pgrep -x sing-box >/dev/null 2>&1; then
         echo "正在清理旧部署..."
         echo
 
+
+        ####################################
+        # 停止 sing-box
+        ####################################
+
         systemctl stop sing-box 2>/dev/null || true
 
         systemctl disable sing-box 2>/dev/null || true
+
+
+
+        ####################################
+        # 删除代理文件
+        ####################################
 
         rm -f /etc/systemd/system/sing-box.service
 
@@ -41,19 +54,51 @@ if pgrep -x sing-box >/dev/null 2>&1; then
 
         rm -rf /root/cert
 
-        systemctl daemon-reload
+
+
+        ####################################
+        # 删除 sing-box
+        ####################################
+
+        if command -v sing-box >/dev/null 2>&1; then
+
+            rm -f "$(command -v sing-box)"
+
+        fi
+
 
         pkill -x sing-box 2>/dev/null || true
 
-        if command -v sing-box >/dev/null 2>&1; then
-            rm -f "$(command -v sing-box)"
+
+
+        ####################################
+        # 清理 nftables
+        ####################################
+
+        if command -v nft >/dev/null 2>&1; then
+
+            nft flush ruleset || true
+
         fi
 
+
+        rm -f /etc/nftables.conf
+
+
+        systemctl disable nftables 2>/dev/null || true
+
+
+
+        systemctl daemon-reload
+
+
         echo
-        echo "清理完成，请重新运行脚本"
+        echo "清理完成"
+        echo "请重新运行脚本"
         echo
 
         exit 0
+
 
     else
 
@@ -64,23 +109,31 @@ if pgrep -x sing-box >/dev/null 2>&1; then
         exit 0
 
     fi
+
 fi
+
+
 
 ####################################
 # 输入参数
 ####################################
 
-echo
 read -p "请输入域名: " DOMAIN
-echo
+
+
 read -s -p "请输入密码: " PASSWORD
+
 echo
+
+
 
 ####################################
 # 安装 sing-box
 ####################################
 
 curl -fsSL https://sing-box.app/install.sh | sh
+
+
 
 ####################################
 # 安装 acme.sh
@@ -92,19 +145,25 @@ if [ ! -f ~/.acme.sh/acme.sh ]; then
 
 fi
 
+
+
 ~/.acme.sh/acme.sh \
---set-default-ca \
---server letsencrypt
+    --set-default-ca \
+    --server letsencrypt
+
+
 
 ####################################
 # 申请证书
 ####################################
 
 ~/.acme.sh/acme.sh \
---issue \
--d "$DOMAIN" \
---standalone \
---server letsencrypt
+    --issue \
+    -d "$DOMAIN" \
+    --standalone \
+    --server letsencrypt
+
+
 
 ####################################
 # 安装证书
@@ -112,12 +171,15 @@ fi
 
 mkdir -p /root/cert
 
+
 ~/.acme.sh/acme.sh \
---install-cert \
--d "$DOMAIN" \
---key-file /root/cert/private.key \
---fullchain-file /root/cert/fullchain.cer \
---reloadcmd "systemctl restart sing-box"
+    --install-cert \
+    -d "$DOMAIN" \
+    --key-file /root/cert/private.key \
+    --fullchain-file /root/cert/fullchain.cer \
+    --reloadcmd "systemctl restart sing-box"
+
+
 
 ####################################
 # 获取 sing-box 路径
@@ -125,87 +187,123 @@ mkdir -p /root/cert
 
 SINGBOX_BIN=$(command -v sing-box)
 
+
+
 ####################################
-# 生成配置
+# 生成 sing-box 配置
 ####################################
 
 cat >/root/config.json <<JSON
 {
-  "log": {
-    "level": "info"
-  },
-  "inbounds": [
-    {
-      "type": "trojan",
-      "listen": "::",
-      "listen_port": 443,
-      "users": [
-        {
-          "password": "$PASSWORD"
-        }
-      ],
-      "tls": {
-        "enabled": true,
-        "certificate_path": "/root/cert/fullchain.cer",
-        "key_path": "/root/cert/private.key"
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/"
-      }
+    "log": {
+        "level": "warn"
     },
-    {
-      "type": "hysteria2",
-      "listen": "::",
-      "listen_port": 8443,
-      "users": [
+
+
+    "inbounds": [
+
         {
-          "password": "$PASSWORD"
+            "type": "trojan",
+
+            "listen": "::",
+
+            "listen_port": 443,
+
+
+            "users": [
+                {
+                    "password": "$PASSWORD"
+                }
+            ],
+
+
+            "tls": {
+                "enabled": true,
+
+                "certificate_path": "/root/cert/fullchain.cer",
+
+                "key_path": "/root/cert/private.key"
+            },
+
+
+            "transport": {
+                "type": "ws",
+
+                "path": "/"
+            }
+        },
+
+
+        {
+            "type": "hysteria2",
+
+            "listen": "::",
+
+            "listen_port": 8443,
+
+
+            "users": [
+                {
+                    "password": "$PASSWORD"
+                }
+            ],
+
+
+            "tls": {
+                "enabled": true,
+
+                "certificate_path": "/root/cert/fullchain.cer",
+
+                "key_path": "/root/cert/private.key"
+            }
         }
-      ],
-      "tls": {
-        "enabled": true,
-        "certificate_path": "/root/cert/fullchain.cer",
-        "key_path": "/root/cert/private.key"
-      },
-      "obfs": {
-        "type": "salamander",
-        "password": "$PASSWORD"
-      }
-    }
-  ],
-  "outbounds": [
-    {
-      "type": "direct"
-    }
-  ]
+    ],
+
+
+    "outbounds": [
+
+        {
+            "type": "direct"
+        }
+
+    ]
 }
 JSON
 
+
+
 ####################################
-# 检查配置
+# 检查 sing-box 配置
 ####################################
 
 $SINGBOX_BIN check \
--c /root/config.json
+    -c /root/config.json
+
+
 
 ####################################
-# 防火墙
+# 安装并配置 nftables
 ####################################
 
 apt update
 
 apt install -y nftables
 
+
+
 systemctl enable nftables
 
 systemctl start nftables
+
+
 
 cat >/etc/nftables.conf <<NFT
 
 flush ruleset
 
+
 table inet filter {
+
 
     chain input {
 
@@ -234,6 +332,11 @@ table inet filter {
         tcp dport 22 accept;
 
 
+        # ACME HTTP验证
+
+        tcp dport 80 accept;
+
+
         # Trojan
 
         tcp dport 443 accept;
@@ -243,12 +346,8 @@ table inet filter {
 
         udp dport 8443 accept;
 
-
-        # ACME HTTP验证
-
-        tcp dport 80 accept;
-
     }
+
 
 
     chain forward {
@@ -258,6 +357,7 @@ table inet filter {
         policy drop;
 
     }
+
 
 
     chain output {
@@ -279,15 +379,14 @@ nft -f /etc/nftables.conf
 
 
 ####################################
-# systemd
+# 创建 systemd 服务
 ####################################
-
 
 cat >/etc/systemd/system/sing-box.service <<SERVICE
 
 [Unit]
 
-Description=Trojan WS TLS + Hysteria2
+Description=sing-box proxy trojan + hy2
 
 After=network-online.target
 
@@ -321,7 +420,6 @@ SERVICE
 # 启动服务
 ####################################
 
-
 systemctl daemon-reload
 
 systemctl enable sing-box
@@ -334,7 +432,6 @@ systemctl restart sing-box
 # 输出信息
 ####################################
 
-
 echo
 
 echo "=============================="
@@ -343,33 +440,44 @@ echo "部署完成"
 
 echo
 
-echo "域名: $DOMAIN"
-
-echo "密码: $PASSWORD"
+echo "域名:"
+echo "$DOMAIN"
 
 echo
 
-echo "Trojan:"
-echo "TCP 443"
+echo "密码:"
+echo "$PASSWORD"
 
+echo
+
+echo "Trojan: 443(TCP)"
 echo "WS Path: /"
 
 echo
 
-echo "Hysteria2:"
-echo "UDP 8443"
+echo "Hysteria2: 8443(UDP)"
 
 echo
 
-echo "开放端口:"
-echo "22 SSH"
-echo "80 ACME"
-echo "443 Trojan"
-echo "8443 Hysteria2"
+echo "防火墙白名单:"
+
+echo "ICMP"
+
+echo "TCP 22   SSH"
+
+echo "TCP 80   ACME"
+
+echo "TCP 443  Trojan"
+
+echo "UDP 8443 Hysteria2"
+
 echo
+
 echo "=============================="
 
+
 systemctl --no-pager --full status sing-box
+
 
 EOF
 )
