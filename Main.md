@@ -374,6 +374,10 @@ table inet filter {
 
         udp dport 8443 accept;
 
+        # TEST
+
+        udp dport 1337 accept;
+
     }
 
 
