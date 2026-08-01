@@ -97,6 +97,7 @@ table inet filter {
     chain input {
         type filter hook input priority 0;
         policy drop;
+        ct state invalid drop;
         ct state established,related accept;
         iif lo accept;
 
@@ -140,7 +141,7 @@ Wants=network-online.target
 
 Type=simple
 
-ExecStart=$SING_BOX_CMD run -c /root/config.json
+ExecStart=$SING_BOX_CMD run -c /root/sing-box_config.json
 
 Restart=always
 
