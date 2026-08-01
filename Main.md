@@ -12,8 +12,8 @@ bash <<'EOF'
 set -euo pipefail
 
 echo
-read -p "请输入域名: " DOMAIN
-read -s -p "请输入密码: " PASSWORD
+read -p "请输入域名: " DOMAIN </dev/tty
+read -s -p "请输入密码: " PASSWORD </dev/tty
 echo
 
 curl -fsSL https://sing-box.app/install.sh | sh
