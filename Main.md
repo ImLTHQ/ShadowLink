@@ -50,7 +50,6 @@ cat >/root/sing-box_config.json <<JSON
     "inbounds": [
         {
             "type": "trojan",
-
             "listen": "::",
             "listen_port": 443,
 
@@ -62,7 +61,6 @@ cat >/root/sing-box_config.json <<JSON
 
             "tls": {
                 "enabled": true,
-
                 "certificate_path": "/root/cert/fullchain.cer",
                 "key_path": "/root/cert/private.key"
             },
@@ -85,72 +83,20 @@ JSON
 $SING_BOX_CMD check \
     -c /root/sing-box_config.json
 
-apt update
-apt install -y nftables
-
-cat >/etc/nftables.conf <<NFT
-
-flush ruleset
-
-table inet filter {
-
-    chain input {
-        type filter hook input priority 0;
-        policy drop;
-        ct state invalid drop;
-        ct state established,related accept;
-        iif lo accept;
-
-        tcp dport 22 accept;
-        tcp dport 80 accept;
-        tcp dport 443 accept;
-    }
-
-
-
-    chain forward {
-        type filter hook forward priority 0;
-        policy drop;
-    }
-
-
-
-    chain output {
-        type filter hook output priority 0;
-        policy accept;
-    }
-}
-
-NFT
-
-nft -c -f /etc/nftables.conf
-nft -f /etc/nftables.conf
-
-systemctl enable nftables
-systemctl restart nftables
-
 cat >/etc/systemd/system/sing-box.service <<SERVICE
-
 [Unit]
-
 Description=sing-box
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-
 Type=simple
-
 ExecStart=$SING_BOX_CMD run -c /root/sing-box_config.json
-
 Restart=always
-
 RestartSec=3
 
 [Install]
-
 WantedBy=multi-user.target
-
 SERVICE
 
 systemctl daemon-reload
@@ -168,11 +114,6 @@ echo "密码: $PASSWORD"
 echo "传输: WS"
 echo "路径: /ws"
 echo "TLS: 启用"
-echo "--------------------"
-echo "[防火墙] 白名单模式"
-echo "TCP 22 -> SSH"
-echo "TCP 80 -> ACME"
-echo "TCP 443 -> Trojan"
 echo "--------------------"
 echo
 
