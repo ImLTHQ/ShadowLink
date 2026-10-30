@@ -1,8 +1,20 @@
-# Trojan
+# 随便写的
 
 ## 如何连接服务器
 ```
 ssh 用户名@地址
+```
+
+## 服务器重装系统后SSH需要输入
+```bash
+ssh-keygen -R <Address>
+```
+
+## 查询进程与结束进程
+```bash
+ps aux | grep sing-box
+
+pkill sing-box
 ```
 
 ## 脚本
@@ -348,16 +360,4 @@ echo "最近的 sing-box 日志："
 journalctl -u sing-box -n 30 --no-pager || true
 
 EOF
-```
-
-## 服务器重装系统后SSH需要输入
-```bash
-ssh-keygen -R <Address>
-```
-
-## 查询进程与结束进程
-```bash
-ps aux | grep sing-box
-
-pkill sing-box
 ```
